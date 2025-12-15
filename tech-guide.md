@@ -461,28 +461,28 @@ min_price <= max_price zorunlu.
 Usta aynı case'e bir kez teklif verebilir.
 Ustanın aktif aboneliği yoksa ve ücretsiz hakkını kullandıysa: hata döner (veya "ödeme gerekli" kodu).
 Case Durum Geçişleri
-open → in_offers (ilk teklif geldiğinde)
-in_offers → accepted (teklif seçildiğinde)
-accepted → closed (iş tamamlandı + kullanıcı onayı)
+* open → in_offers (ilk teklif geldiğinde)
+* in_offers → accepted (teklif seçildiğinde)
+* accepted → closed (iş tamamlandı + kullanıcı onayı)
 * → cancelled (kullanıcı iptal ederse; belirli kurallarla)
   
-6. Geliştirme Yol Haritası (İskelet)
+### 6. Geliştirme Yol Haritası (İskelet)
 Bu kısım GitHub issue'larına sprint task'ları olarak da bölünebilir.
 
-Sprint 1 (Altyapı + Temel Modeller)
+#### Sprint 1 (Altyapı + Temel Modeller)
  Django + DRF kurulum
  PostgreSQL bağlantısı
  User modeli (role alanıyla)
  OTP auth entegrasyonu (stub bile olabilir)
  Vehicle + VehicleOwnership modelleri
  VIN hash/encrypt yardımcı fonksiyonları
-Sprint 2 (Arıza ve Usta Temeli)
+#### Sprint 2 (Arıza ve Usta Temeli)
  MechanicProfile modeli + basit CRUD API
  RepairCase + RepairMedia modelleri ve API'leri
  Arıza açma akışı (+ konum zorunlu)
  Medya upload iskeleti (şimdilik basit bir dosya servisi bile olabilir)
  Ustanın arıza havuzu endpoint'i (mesafeye göre sıralama)
-Sprint 3 (Teklif + Inbox + Yorum)
+#### Sprint 3 (Teklif + Inbox + Yorum)
  Offer modeli + teklif API'si
  Teklif kabul akışı + case status geçişleri
  Thread + Message modelleri + inbox API'leri
@@ -490,7 +490,7 @@ Sprint 3 (Teklif + Inbox + Yorum)
  Admin panelde:
 usta doğrulama
 şikayet/yorum yönetimi için alanlar
-Sprint 4 (Abonelik/Kredi Basit MVP)
+#### Sprint 4 (Abonelik/Kredi Basit MVP)
  SubscriptionPlan, Subscription modelleri
  CreditTransaction modeli
  Teklif verirken hak kontrolü
