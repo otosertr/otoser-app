@@ -1,4 +1,4 @@
-# Sanayi Rehberi & Parça Dedektifi (Faz 1 – Teknik Tasarım)
+# Sanayi Rehberi (Faz 1 – Teknik Tasarım)
 
 ## Kapsam (Faz 1 / MVP)
 
