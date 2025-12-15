@@ -115,3 +115,108 @@ class User(AbstractBaseUser):
     role: CharField(choices=['customer', 'mechanic', 'admin'])
     is_active: BooleanField
     created_at: DateTimeField
+```
+### 3.2. Araç ve Sahiplik
+```python
+class Vehicle(models.Model):
+    id: UUID
+    vin_hash: CharField(unique=True)       # HMAC-SHA256
+    vin_ciphertext: TextField()            # encrypted VIN
+    make: CharField()                      # Marka
+    model: CharField()
+    year: IntegerField(null=True, blank=True)
+    engine: CharField(null=True, blank=True)
+    created_at: DateTimeField(auto_now_add=True)
+
+class VehicleOwnership(models.Model):
+    id: UUID
+    vehicle: ForeignKey(Vehicle)
+    user: ForeignKey(User)
+    start_at: DateTimeField(auto_now_add=True)
+    end_at: DateTimeField(null=True, blank=True)  # null = aktif sahip
+```
+### 3.3. Usta Profili
+```python
+class MechanicProfile(models.Model):
+    user: OneToOneField(User, primary_key=True)
+    display_name: CharField()
+    shop_name: CharField()
+    specialties: JSONField()               # ['mechanic', 'electric', 'body', 'tyres', ...]
+    verified_level: IntegerField(default=0)  # 0=doğrulanmamış, 1=kimlik, 2=saha vb.
+    shop_lat: DecimalField()
+    shop_lng: DecimalField()
+    on_site_service: BooleanField(default=False)
+    towing_available: BooleanField(default=False)
+    rating_avg: FloatField(default=0)
+    rating_count: IntegerField(default=0)
+    created_at: DateTimeField(auto_now_add=True)
+```
+### 3.4. Arıza Kaydı ve Medya
+```python
+class RepairCase(models.Model):
+    id: UUID
+    vehicle: ForeignKey(Vehicle)
+    opened_by: ForeignKey(User, related_name='opened_cases')
+    title: CharField()
+    description: TextField()
+    location_lat: DecimalField()
+    location_lng: DecimalField()
+    location_area_text: CharField()        # örn. 'Kartal, İstanbul'
+    service_mode: CharField(choices=['bring_to_shop', 'on_site', 'towing'])
+    status: CharField(choices=['open', 'in_offers', 'accepted', 'closed', 'cancelled'])
+    created_at: DateTimeField(auto_now_add=True)
+    updated_at: DateTimeField(auto_now=True)
+
+class RepairMedia(models.Model):
+    id: UUID
+    repair_case: ForeignKey(RepairCase, related_name='media')
+    media_type: CharField(choices=['photo', 'video'])
+    url: TextField()
+    created_at: DateTimeField(auto_now_add=True)
+```
+### 3.5. Teklifler
+```python
+class Offer(models.Model):
+    id: UUID
+    repair_case: ForeignKey(RepairCase, related_name='offers')
+    mechanic: ForeignKey(User, related_name='offers_made')  # mechanic user
+    min_price: DecimalField()
+    max_price: DecimalField()
+    currency: CharField(default='TRY')
+    eta_days: IntegerField()               # tahmini süre (gün)
+    notes: TextField()
+    status: CharField(choices=['sent', 'withdrawn', 'accepted', 'rejected'])
+    created_at: DateTimeField(auto_now_add=True)
+    updated_at: DateTimeField(auto_now=True)
+```
+
+### 3.6. Mesajlaşma
+```python
+class Thread(models.Model):
+    id: UUID
+    repair_case: ForeignKey(RepairCase, related_name='threads')
+    customer: ForeignKey(User, related_name='threads_as_customer')
+    mechanic: ForeignKey(User, related_name='threads_as_mechanic')
+    created_at: DateTimeField(auto_now_add=True)
+
+class Message(models.Model):
+    id: UUID
+    thread: ForeignKey(Thread, related_name='messages')
+    sender: ForeignKey(User)
+    message_text: TextField()
+    created_at: DateTimeField(auto_now_add=True)
+    read_at: DateTimeField(null=True, blank=True)
+```
+
+### 3.7. Yorumlar
+```python
+class Review(models.Model):
+    id: UUID
+    repair_case: OneToOneField(RepairCase, related_name='review')
+    mechanic: ForeignKey(User, related_name='reviews_received')
+    customer: ForeignKey(User, related_name='reviews_given')
+    stars: IntegerField()                  # 1-5
+    tags: JSONField()                      # örn. ['şeffaf fiyat', 'zamanında teslim']
+    comment: TextField()
+    created_at: DateTimeField(auto_now_add=True)
+```
