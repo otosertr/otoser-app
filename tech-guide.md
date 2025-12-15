@@ -220,3 +220,36 @@ class Review(models.Model):
     comment: TextField()
     created_at: DateTimeField(auto_now_add=True)
 ```
+
+### 3.8. Abonelik ve Kredi (Basit MVP Seviyesi)
+```python
+class SubscriptionPlan(models.Model):
+    id: UUID
+    name: CharField()
+    monthly_price: DecimalField()
+    monthly_offer_quota: IntegerField()    # ayda kaç teklif hakkı
+    is_active: BooleanField(default=True)
+
+class Subscription(models.Model):
+    id: UUID
+    mechanic: ForeignKey(User, related_name='subscriptions')
+    plan: ForeignKey(SubscriptionPlan)
+    start_at: DateTimeField()
+    end_at: DateTimeField()
+
+class CreditTransaction(models.Model):
+    id: UUID
+    mechanic: ForeignKey(User, related_name='credit_transactions')
+    change: IntegerField()                 # + veya - teklif hakkı
+    reason: CharField()
+    created_at: DateTimeField(auto_now_add=True)
+```
+### 4. API Tasarımı (Endpoint'ler ve Örnek Gövdeler)
+##### Base URL: /api/v1/
+
+#### 4.1. Auth (OTP)
+POST /auth/otp/request
+Body:
+```json
+{ "phone": "+905xxxxxxxxx" }
+```
