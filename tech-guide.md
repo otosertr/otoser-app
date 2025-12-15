@@ -253,3 +253,245 @@ Body:
 ```json
 { "phone": "+905xxxxxxxxx" }
 ```
+Response: 200 OK (her zaman generic cevap – güvenlik için)
+
+POST /auth/otp/verify
+Body:
+```json
+{ "access_token": "jwt_or_token", "user": { "id": "...", "role": "customer" } }
+```
+#### 4.2. Araçlar
+POST /vehicles
+Body:
+```json
+{
+  "vin": "WVWZZZ...1234",
+  "make": "Volkswagen",
+  "model": "Golf",
+  "year": 2015,
+  "engine": "1.6 TDI"
+}
+```
+İş mantığı:
+
+VIN doğrula (format)
+vin_hash ile Vehicle ara:
+varsa: o kaydı dön (ve yeni ownership oluştur)
+yoksa: yeni Vehicle oluştur + ownership
+
+Response:
+```json
+{
+  "id": "vehicle_uuid",
+  "masked_vin": "***************1234",
+  "make": "Volkswagen",
+  "model": "Golf",
+  "year": 2015
+}
+```
+GET /vehicles
+Kullanıcının sahip olduğu aktif araçları listeler.
+
+#### 4.3. Arıza Kayıtları
+POST /repair-cases
+Body:
+```json
+{
+  "vehicle_id": "vehicle_uuid",
+  "title": "Motor sesi var",
+  "description": "Soğukken çalıştırınca metalik ses geliyor...",
+  "location_lat": 40.9,
+  "location_lng": 29.1,
+  "location_area_text": "Kartal, İstanbul",
+  "service_mode": "bring_to_shop"
+}
+```
+Response:
+```json
+{
+  "id": "case_uuid",
+  "status": "open",
+  ...
+}
+```
+GET /repair-cases/:id
+Arıza detayları + medya + (kullanıcı ise) gelen teklifler.
+
+GET /repair-cases?mine=true
+Kullanıcının açtığı arızaları listeler.
+
+#### 4.4. Medya Yükleme
+Tercihen pre-signed URL:
+
+POST /repair-cases/:id/media-upload-url
+Body:
+```json
+{ "media_type": "photo", "file_extension": "jpg" }
+```
+Response:
+```json
+{ "upload_url": "https://...", "final_url": "https://..." }
+```
+POST /repair-cases/:id/media
+Body:
+```json
+{ "media_type": "photo", "url": "https://..." }
+```
+#### 4.5. Usta Profil
+GET /mechanic/me
+PUT /mechanic/me
+Body:
+```json
+{
+  "display_name": "Ahmet Usta",
+  "shop_name": "Ahmet Oto",
+  "specialties": ["mechanic", "electric"],
+  "shop_lat": 40.9,
+  "shop_lng": 29.1,
+  "on_site_service": true,
+  "towing_available": false
+}
+```
+#### 4.6. Ustanın Arıza Havuzu
+GET /mechanic/repair-cases?lat=40.9&lng=29.1&page=1
+Sunucu:
+
+Aynı şehirdeki arızaları getirir.
+Mesafeye göre sıralar (yakından uzağa).
+İleriki fazda km filtresi eklenebilir.
+Response (özet):
+```json
+[
+  {
+    "id": "case_uuid",
+    "title": "Motor sesi var",
+    "distance_km": 3.2,
+    "service_mode": "bring_to_shop",
+    "created_at": "..."
+  },
+  ...
+]
+```
+#### 4.7. Teklifler
+POST /repair-cases/:id/offers (usta)
+Body:
+```json
+{
+  "min_price": 1500,
+  "max_price": 2500,
+  "currency": "TRY",
+  "eta_days": 2,
+  "notes": "Muhtemelen triger gergisi vs. Aracı görmem lazım."
+}
+```
+İş mantığı:
+
+Ustanın teklif hakkı var mı? (abonelik / kredi kontrolü)
+Aynı usta aynı case'e daha önce teklif verdiyse engelle.
+Response: 201 Created
+
+GET /repair-cases/:id/offers (kullanıcı)
+Teklifler listesi:
+```json
+[
+  {
+    "id": "offer_uuid",
+    "mechanic": {
+      "id": "user_uuid",
+      "display_name": "Ahmet Usta",
+      "shop_name": "Ahmet Oto",
+      "rating_avg": 4.8,
+      "rating_count": 23,
+      "distance_km": 3.2
+    },
+    "min_price": 1500,
+    "max_price": 2500,
+    "eta_days": 2,
+    "notes": "...",
+    "status": "sent"
+  }
+]
+```
+POST /offers/:id/accept (kullanıcı)
+RepairCase.status → accepted
+İlgili Offer.status → accepted, diğerleri → rejected
+Gerekirse otomatik Thread açılır.
+
+#### 4.8. Mesajlaşma (Inbox)
+POST /threads
+Veya teklif kabul edilirken otomatik de oluşturulabilir.
+
+Body:
+```json
+{
+  "repair_case_id": "case_uuid",
+  "mechanic_id": "user_uuid"
+}
+```
+GET /threads
+Kullanıcı veya usta için kendi thread'lerini listeler.
+
+GET /threads/:id/messages
+POST /threads/:id/messages
+Body:
+```json
+{ "message_text": "Merhaba, yarın sabah gelebilir miyim?" }
+```
+#### 4.9. Yorumlar
+POST /repair-cases/:id/review
+Sadece closed ve iş tamamlandı olan case'ler için.
+
+Body:
+```json
+{
+  "stars": 5,
+  "tags": ["şeffaf fiyat", "zamanında teslim"],
+  "comment": "İlgili ve açıklayıcıydı, teşekkürler."
+}
+```
+### 5. Validasyon ve Edge-Case Kuralları
+##### Araç Ekleme
+VIN: 17 karakter + temel format kontrolü
+Aynı kullanıcı aynı aracı tekrar eklemek isterse, eski sahiplik end_at doluysa yeni ownership başlatılır.
+##### Arıza Açma
+Aynı gün içinde aynı kullanıcı + aynı araç için birden fazla case açılırsa uyarı.
+Yeni kullanıcılar için günlük 1 case limiti (yapılandırılabilir).
+##### Teklif Verme
+min_price <= max_price zorunlu.
+Usta aynı case'e bir kez teklif verebilir.
+Ustanın aktif aboneliği yoksa ve ücretsiz hakkını kullandıysa: hata döner (veya "ödeme gerekli" kodu).
+Case Durum Geçişleri
+open → in_offers (ilk teklif geldiğinde)
+in_offers → accepted (teklif seçildiğinde)
+accepted → closed (iş tamamlandı + kullanıcı onayı)
+* → cancelled (kullanıcı iptal ederse; belirli kurallarla)
+  
+6. Geliştirme Yol Haritası (İskelet)
+Bu kısım GitHub issue'larına sprint task'ları olarak da bölünebilir.
+
+Sprint 1 (Altyapı + Temel Modeller)
+ Django + DRF kurulum
+ PostgreSQL bağlantısı
+ User modeli (role alanıyla)
+ OTP auth entegrasyonu (stub bile olabilir)
+ Vehicle + VehicleOwnership modelleri
+ VIN hash/encrypt yardımcı fonksiyonları
+Sprint 2 (Arıza ve Usta Temeli)
+ MechanicProfile modeli + basit CRUD API
+ RepairCase + RepairMedia modelleri ve API'leri
+ Arıza açma akışı (+ konum zorunlu)
+ Medya upload iskeleti (şimdilik basit bir dosya servisi bile olabilir)
+ Ustanın arıza havuzu endpoint'i (mesafeye göre sıralama)
+Sprint 3 (Teklif + Inbox + Yorum)
+ Offer modeli + teklif API'si
+ Teklif kabul akışı + case status geçişleri
+ Thread + Message modelleri + inbox API'leri
+ Review modeli + yorum API'si
+ Admin panelde:
+usta doğrulama
+şikayet/yorum yönetimi için alanlar
+Sprint 4 (Abonelik/Kredi Basit MVP)
+ SubscriptionPlan, Subscription modelleri
+ CreditTransaction modeli
+ Teklif verirken hak kontrolü
+ Admin'den ustaya manuel hak tanımlama (pilot aşama için yeterli)
